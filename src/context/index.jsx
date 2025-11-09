@@ -1,0 +1,25 @@
+import { Context } from "./contexts";
+import { DataProvider } from "./dataContext";
+import { InstituteProvider } from "./instituteContext";
+import { SessionProvider } from "./sessionContext";
+import { UserProvider } from "./userContext";
+import { NotificationProvider } from "./notificationContext";
+import PropTypes from "prop-types";
+
+export const ContextProvider = ({ children }) => {
+  return (
+    <Context.Provider>
+      <UserProvider>
+        <NotificationProvider>
+          <InstituteProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </InstituteProvider>
+        </NotificationProvider>
+      </UserProvider>
+    </Context.Provider>
+  );
+};
+
+ContextProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};
