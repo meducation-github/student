@@ -10,7 +10,7 @@ import Chat from "./pages/chat";
 import { Toaster } from "react-hot-toast";
 
 function App() {
-  const { login } = useContext(UserContext);
+  const { login, setStudent } = useContext(UserContext);
   const { setInstitute } = useContext(InstituteContext);
   const { setSession } = useContext(SessionContext);
   const { setUser } = useNotifications();
@@ -66,7 +66,8 @@ function App() {
           return;
         }
 
-        localStorage.setItem("student_id", userData.id);
+        // Store student data in context (which also persists to localStorage)
+        setStudent(userData);
 
         try {
           // Fetch institute details and set in context so dependent components can load immediately

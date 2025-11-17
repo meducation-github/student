@@ -26,6 +26,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { supabase } from "../../../config/env";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Card, CardContent } from "../../../components/ui/card";
 
 // Constants
 const INSTITUTE_ID = "550e8400-e29b-41d4-a716-446655440000";
@@ -292,130 +294,117 @@ const AttendanceModal = ({ person, isOpen, onClose, type }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="">
-      <div className="bg-white px-4 py-3 sm:px-6">
-        {/* View Mode Tabs */}
-        <div className=" border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setViewMode("month")}
-              className={`${
-                viewMode === "month"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <Calendar className="h-5 w-5 mr-2" />
-              Month View
-            </button>
-            <button
-              onClick={() => setViewMode("week")}
-              className={`${
-                viewMode === "week"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <Calendar className="h-5 w-5 mr-2" />
-              Week View
-            </button>
-            <button
-              onClick={() => setViewMode("year")}
-              className={`${
-                viewMode === "year"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-            >
-              <BarChart2 className="h-5 w-5 mr-2" />
-              Year View
-            </button>
-          </nav>
-        </div>
+    <div className="p-4">
+      <Card>
+        <CardContent className="p-6">
+          <Tabs defaultValue="month" value={viewMode} onValueChange={setViewMode}>
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="month" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Month View
+              </TabsTrigger>
+              <TabsTrigger value="week" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Week View
+              </TabsTrigger>
+              <TabsTrigger value="year" className="flex items-center gap-2">
+                <BarChart2 className="h-4 w-4" />
+                Year View
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Calendar View */}
-        <div className="mt-4">
-          <div className="flex justify-between items-center mb-4">
-            <button
-              onClick={() => {
-                if (viewMode === "month") {
-                  setCurrentDate(
-                    new Date(currentDate.setMonth(currentDate.getMonth() - 1))
-                  );
-                } else if (viewMode === "week") {
-                  setCurrentDate(subWeeks(currentDate, 1));
-                } else {
-                  setCurrentDate(
-                    new Date(
-                      currentDate.setFullYear(currentDate.getFullYear() - 1)
-                    )
-                  );
-                }
-              }}
-              className="p-2 hover:bg-gray-100 rounded-full"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {/* Navigation Header */}
+            <div className="flex justify-between items-center mb-6">
+              <button
+                onClick={() => {
+                  if (viewMode === "month") {
+                    setCurrentDate(
+                      new Date(currentDate.setMonth(currentDate.getMonth() - 1))
+                    );
+                  } else if (viewMode === "week") {
+                    setCurrentDate(subWeeks(currentDate, 1));
+                  } else {
+                    setCurrentDate(
+                      new Date(
+                        currentDate.setFullYear(currentDate.getFullYear() - 1)
+                      )
+                    );
+                  }
+                }}
+                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <h2 className="text-lg font-semibold">
-              {viewMode === "month"
-                ? format(currentDate, "MMMM yyyy")
-                : viewMode === "week"
-                ? `${format(startOfWeek(currentDate), "MMM d")} - ${format(
-                    endOfWeek(currentDate),
-                    "MMM d, yyyy"
-                  )}`
-                : format(currentDate, "yyyy")}
-            </h2>
-            <button
-              onClick={() => {
-                if (viewMode === "month") {
-                  setCurrentDate(
-                    new Date(currentDate.setMonth(currentDate.getMonth() + 1))
-                  );
-                } else if (viewMode === "week") {
-                  setCurrentDate(addWeeks(currentDate, 1));
-                } else {
-                  setCurrentDate(
-                    new Date(
-                      currentDate.setFullYear(currentDate.getFullYear() + 1)
-                    )
-                  );
-                }
-              }}
-              className="p-2 hover:bg-gray-100 rounded-full"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <h2 className="text-lg font-semibold">
+                {viewMode === "month"
+                  ? format(currentDate, "MMMM yyyy")
+                  : viewMode === "week"
+                  ? `${format(startOfWeek(currentDate), "MMM d")} - ${format(
+                      endOfWeek(currentDate),
+                      "MMM d, yyyy"
+                    )}`
+                  : format(currentDate, "yyyy")}
+              </h2>
+              <button
+                onClick={() => {
+                  if (viewMode === "month") {
+                    setCurrentDate(
+                      new Date(currentDate.setMonth(currentDate.getMonth() + 1))
+                    );
+                  } else if (viewMode === "week") {
+                    setCurrentDate(addWeeks(currentDate, 1));
+                  } else {
+                    setCurrentDate(
+                      new Date(
+                        currentDate.setFullYear(currentDate.getFullYear() + 1)
+                      )
+                    );
+                  }
+                }}
+                className="p-2 hover:bg-zinc-100 rounded-lg transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
-          {viewMode === "month" && renderCalendar()}
-          {viewMode === "week" && renderWeekView()}
-          {viewMode === "year" && renderYearView()}
-        </div>
-      </div>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <TabsContent value="month" className="mt-0">
+              {renderCalendar()}
+            </TabsContent>
+
+            <TabsContent value="week" className="mt-0">
+              {renderWeekView()}
+            </TabsContent>
+
+            <TabsContent value="year" className="mt-0">
+              {renderYearView()}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

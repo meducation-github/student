@@ -16,9 +16,19 @@ import {
   QrCode,
   Copy,
   Check,
+  AlertCircle,
+  TrendingUp,
+  Calendar,
 } from "lucide-react";
 import { supabase } from "../../config/env";
 import { InstituteContext, SessionContext } from "../../context/contexts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 const STUDENT_ID = localStorage.getItem("student_id");
 
@@ -169,544 +179,596 @@ export default function Fees() {
     fetchStudentAndFees();
   }, []);
 
+  const totalFees = studentFees.reduce(
+    (sum, fee) => sum + parseFloat(fee.total_fee),
+    0
+  );
+  const paidFees = studentFees.reduce(
+    (sum, fee) => sum + parseFloat(fee.paid_fee),
+    0
+  );
+  const pendingFees = totalFees - paidFees;
+  const paymentProgress = totalFees > 0 ? (paidFees / totalFees) * 100 : 0;
+
+  const getStatusVariant = (status) => {
+    switch (status) {
+      case "paid":
+        return "success";
+      case "submitted":
+        return "info";
+      case "partial":
+        return "warning";
+      default:
+        return "destructive";
+    }
+  };
+
   return (
-    <div className=" my-4 px-3">
-      <div className="">
-        <div className="bg-white rounded-lg ">
-          {/* Fee Analytics */}
-          <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <DollarSign className="h-5 w-5 text-gray-400 mr-2" />
-                <span className="text-sm text-gray-500">Total Fees</span>
-              </div>
-              <span className="text-xl font-semibold">
-                {formatCurrency(
-                  studentFees.reduce(
-                    (sum, fee) => sum + parseFloat(fee.total_fee),
-                    0
-                  )
-                )}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <CheckCircle2 className="h-5 w-5 text-green-400 mr-2" />
-                <span className="text-sm text-gray-500">Paid Fees</span>
-              </div>
-              <span className="text-xl font-semibold text-green-600">
-                {formatCurrency(
-                  studentFees.reduce(
-                    (sum, fee) => sum + parseFloat(fee.paid_fee),
-                    0
-                  )
-                )}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <Clock className="h-5 w-5 text-red-400 mr-2" />
-                <span className="text-sm text-gray-500">Pending Fees</span>
-              </div>
-              <span className="text-xl font-semibold text-red-600">
-                {formatCurrency(
-                  studentFees.reduce(
-                    (sum, fee) =>
-                      sum +
-                      (parseFloat(fee.total_fee) - parseFloat(fee.paid_fee)),
-                    0
-                  )
-                )}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <FileText className="h-5 w-5 text-blue-400 mr-2" />
-                <span className="text-sm text-gray-500">Total Cycles</span>
-              </div>
-              <span className="text-xl font-semibold text-blue-600">
-                {studentFees.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Fees table */}
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cycle
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Period
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Fee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Paid Fee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {studentFees.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="6"
-                      className="px-6 py-4 text-center text-sm text-gray-500"
-                    >
-                      No fees found for this student
-                    </td>
-                  </tr>
-                ) : (
-                  studentFees.map((fee) => {
-                    const startDate = new Date(
-                      fee.cycle_start_date
-                    ).toLocaleDateString();
-                    const endDate = new Date(
-                      fee.cycle_end_date
-                    ).toLocaleDateString();
-                    const pendingAmount =
-                      parseFloat(fee.total_fee) - parseFloat(fee.paid_fee);
-
-                    return (
-                      <tr key={fee.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {fee.fee_cycle.charAt(0).toUpperCase() +
-                                fee.fee_cycle.slice(1)}
-                            </span>
-                            {fee.is_current_cycle && (
-                              <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {startDate} - {endDate}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(fee.total_fee)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                          {formatCurrency(fee.paid_fee)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              fee.payment_status === "paid"
-                                ? "bg-green-100 text-green-800"
-                                : fee.payment_status === "submitted"
-                                ? "bg-blue-100 text-blue-800"
-                                : fee.payment_status === "partial"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {fee.payment_status.charAt(0).toUpperCase() +
-                              fee.payment_status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          {fee.payment_status === "paid" ||
-                          fee.payment_status === "submitted" ? (
-                            <button
-                              onClick={() =>
-                                window.open(fee.receipt_url, "_blank")
-                              }
-                              className="text-blue-600 hover:text-blue-900 flex items-center justify-end gap-1"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span>Download Receipt</span>
-                            </button>
-                          ) : (
-                            fee.payment_status !== "paid" &&
-                            pendingAmount > 0 && (
-                              <button
-                                onClick={() => {
-                                  setSelectedFee(fee);
-                                  setPaymentAmount(pendingAmount);
-                                  setIsPaymentModalOpen(true);
-                                }}
-                                className="text-blue-600 hover:text-blue-900"
-                              >
-                                Pay Now
-                              </button>
-                            )
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    <div className="container mx-auto p-4 md:p-6 space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Fee Management</h1>
+        <p className="text-zinc-500">
+          Track and manage your fee payments across all cycles
+        </p>
       </div>
 
-      {/* Payment Modal */}
-      {isPaymentModalOpen && selectedFee && (
-        <div className="fixed inset-0 overflow-y-auto z-50">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 transition-opacity"
-              aria-hidden="true"
-            >
-              <div className="absolute inset-0 bg-black/25"></div>
+      {/* Analytics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalFees)}</div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Across {studentFees.length} cycles
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Paid Fees</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(paidFees)}
             </div>
-
-            <span
-              className="hidden sm:inline-block sm:align-middle sm:h-screen"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">
-                          Submit Fee Payment
-                        </h3>
-                        {selectedFee && (
-                          <p className="mt-1 text-sm text-gray-500">
-                            {selectedFee.fee_cycle.charAt(0).toUpperCase() +
-                              selectedFee.fee_cycle.slice(1)}{" "}
-                            (
-                            {new Date(
-                              selectedFee.cycle_start_date
-                            ).toLocaleDateString()}{" "}
-                            -{" "}
-                            {new Date(
-                              selectedFee.cycle_end_date
-                            ).toLocaleDateString()}
-                            )
-                          </p>
-                        )}
-                      </div>
-                      {showPaymentInstructions ? (
-                        <button
-                          onClick={() => setShowPaymentInstructions(false)}
-                          className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
-                        >
-                          <ArrowLeft className="h-4 w-4" />
-                          <span>Back to Payment</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setShowPaymentInstructions(true)}
-                          className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
-                        >
-                          <span>How to Pay</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    {!showPaymentInstructions ? (
-                      <form onSubmit={handlePaymentSubmit}>
-                        <div className="mb-4">
-                          <label
-                            htmlFor="payment_amount"
-                            className="block text-sm font-medium text-gray-700"
-                          >
-                            Payment Amount
-                          </label>
-                          <input
-                            type="number"
-                            id="payment_amount"
-                            value={paymentAmount}
-                            onChange={(e) => setPaymentAmount(e.target.value)}
-                            min="0"
-                            max={
-                              parseFloat(selectedFee.total_fee) -
-                              parseFloat(selectedFee.paid_fee)
-                            }
-                            step="0.01"
-                            required
-                            className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                          />
-                        </div>
-
-                        <div className="mb-4">
-                          <label
-                            htmlFor="receipt"
-                            className="block text-sm font-medium text-gray-700"
-                          >
-                            Upload Receipt
-                          </label>
-                          <div className="mt-1 flex items-center">
-                            <label className="w-full flex flex-col items-center px-4 py-6 bg-white text-blue rounded-lg tracking-wide border border-gray-200 cursor-pointer">
-                              <Upload className="h-8 w-8" />
-                              <span className="mt-2 text-sm">
-                                {receiptFile
-                                  ? receiptFile.name
-                                  : "Select a file"}
-                              </span>
-                              <input
-                                type="file"
-                                id="receipt"
-                                className="hidden"
-                                accept="image/*,.pdf"
-                                onChange={handleFileSelect}
-                                required
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                          <button
-                            type="submit"
-                            disabled={uploading}
-                            className="w-full inline-flex justify-center rounded-md border border-transparent px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                          >
-                            {uploading ? "Processing..." : "Submit Payment"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsPaymentModalOpen(false);
-                              setSelectedFee(null);
-                              setPaymentAmount(0);
-                              setReceiptFile(null);
-                            }}
-                            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div className="payment-instructions">
-                        <div className="flex space-x-2 mb-4 border-b">
-                          {paymentMethods.map((method) => (
-                            <button
-                              key={method.id}
-                              onClick={() =>
-                                setSelectedPaymentMethod(method.id)
-                              }
-                              className={`px-4 py-2 text-sm font-medium ${
-                                selectedPaymentMethod === method.id
-                                  ? "border-b-2 border-blue-500 text-blue-600"
-                                  : "text-gray-500 hover:text-gray-700"
-                              }`}
-                            >
-                              {method.name}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="payment-method-content">
-                          {selectedPaymentMethod === "easypaisa" && (
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Smartphone className="h-5 w-5" />
-                                <span className="font-medium">
-                                  EasyPaisa Account Number:
-                                </span>
-                                <span>0312-3456789</span>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(
-                                      "0312-3456789"
-                                    );
-                                    setCopied("easypaisa");
-                                    setTimeout(() => setCopied(null), 2000);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  {copied === "easypaisa" ? (
-                                    <Check className="h-4 w-4" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </button>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium mb-2">
-                                  Steps to Pay:
-                                </h4>
-                                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                                  <li>Open your EasyPaisa app</li>
-                                  <li>Go to "Send Money"</li>
-                                  <li>Enter the account number above</li>
-                                  <li>Enter the payment amount</li>
-                                  <li>Add a reference note: "Fee Payment"</li>
-                                  <li>Confirm and complete the transaction</li>
-                                </ol>
-                              </div>
-                            </div>
-                          )}
-
-                          {selectedPaymentMethod === "jazzcash" && (
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Smartphone className="h-5 w-5" />
-                                <span className="font-medium">
-                                  JazzCash Account Number:
-                                </span>
-                                <span>0300-1234567</span>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(
-                                      "0300-1234567"
-                                    );
-                                    setCopied("jazzcash");
-                                    setTimeout(() => setCopied(null), 2000);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  {copied === "jazzcash" ? (
-                                    <Check className="h-4 w-4" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </button>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium mb-2">
-                                  Steps to Pay:
-                                </h4>
-                                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                                  <li>Open your JazzCash app</li>
-                                  <li>Select "Send Money"</li>
-                                  <li>Enter the account number above</li>
-                                  <li>Enter the payment amount</li>
-                                  <li>Add a reference note: "Fee Payment"</li>
-                                  <li>Confirm and complete the transaction</li>
-                                </ol>
-                              </div>
-                            </div>
-                          )}
-
-                          {selectedPaymentMethod === "nayapay" && (
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Smartphone className="h-5 w-5" />
-                                <span className="font-medium">
-                                  NayaPay Account Number:
-                                </span>
-                                <span>0333-9876543</span>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(
-                                      "0333-9876543"
-                                    );
-                                    setCopied("nayapay");
-                                    setTimeout(() => setCopied(null), 2000);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  {copied === "nayapay" ? (
-                                    <Check className="h-4 w-4" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </button>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium mb-2">
-                                  Steps to Pay:
-                                </h4>
-                                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                                  <li>Open your NayaPay app</li>
-                                  <li>Tap on "Send Money"</li>
-                                  <li>Enter the account number above</li>
-                                  <li>Enter the payment amount</li>
-                                  <li>Add a reference note: "Fee Payment"</li>
-                                  <li>Confirm and complete the transaction</li>
-                                </ol>
-                              </div>
-                            </div>
-                          )}
-
-                          {selectedPaymentMethod === "bank" && (
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 text-gray-700">
-                                <Building2 className="h-5 w-5" />
-                                <span className="font-medium">
-                                  Bank Details:
-                                </span>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                                <div>
-                                  <p className="text-sm text-gray-600">
-                                    Bank Name: HBL
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    Account Title: School Name
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    IBAN: PK36HABB0001234567890123
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    Raast ID: 123456789
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(
-                                      "PK36HABB0001234567890123"
-                                    );
-                                    setCopied("bank");
-                                    setTimeout(() => setCopied(null), 2000);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
-                                >
-                                  {copied === "bank" ? (
-                                    <>
-                                      <Check className="h-4 w-4" />
-                                      <span>Copied!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="h-4 w-4" />
-                                      <span>Copy IBAN</span>
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <h4 className="font-medium mb-2">
-                                  Steps to Pay:
-                                </h4>
-                                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
-                                  <li>
-                                    Visit your bank branch or use online banking
-                                  </li>
-                                  <li>Use the bank details provided above</li>
-                                  <li>Enter the payment amount</li>
-                                  <li>Add a reference note: "Fee Payment"</li>
-                                  <li>Complete the transaction</li>
-                                  <li>Keep the receipt for submission</li>
-                                </ol>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 transition-all"
+                  style={{ width: `${paymentProgress}%` }}
+                />
               </div>
+              <span className="text-xs text-zinc-500">
+                {paymentProgress.toFixed(0)}%
+              </span>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Fees</CardTitle>
+            <AlertCircle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {formatCurrency(pendingFees)}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              {pendingFees > 0 ? "Payment required" : "All cleared"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fee Cycles</CardTitle>
+            <FileText className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {studentFees.length}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              {studentFees.filter((f) => f.is_current_cycle).length} current
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Fees Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Fee History</CardTitle>
+          <CardDescription>
+            View and manage all your fee payment cycles
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cycle</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Total Fee</TableHead>
+                <TableHead>Paid Fee</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {studentFees.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2 text-zinc-500">
+                      <FileText className="h-8 w-8" />
+                      <p>No fees found for this student</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                studentFees.map((fee) => {
+                  const startDate = new Date(
+                    fee.cycle_start_date
+                  ).toLocaleDateString();
+                  const endDate = new Date(
+                    fee.cycle_end_date
+                  ).toLocaleDateString();
+                  const pendingAmount =
+                    parseFloat(fee.total_fee) - parseFloat(fee.paid_fee);
+
+                  return (
+                    <TableRow key={fee.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            {fee.fee_cycle.charAt(0).toUpperCase() +
+                              fee.fee_cycle.slice(1)}
+                          </span>
+                          {fee.is_current_cycle && (
+                            <Badge variant="info">Current</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-sm text-zinc-600">
+                          <Calendar className="h-3 w-3" />
+                          {startDate} - {endDate}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(fee.total_fee)}
+                      </TableCell>
+                      <TableCell className="text-green-600 font-medium">
+                        {formatCurrency(fee.paid_fee)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(fee.payment_status)}>
+                          {fee.payment_status.charAt(0).toUpperCase() +
+                            fee.payment_status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {fee.payment_status === "paid" ||
+                        fee.payment_status === "submitted" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(fee.receipt_url, "_blank")}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Receipt
+                          </Button>
+                        ) : (
+                          fee.payment_status !== "paid" &&
+                          pendingAmount > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFee(fee);
+                                setPaymentAmount(pendingAmount);
+                                setIsPaymentModalOpen(true);
+                              }}
+                            >
+                              <CreditCard className="h-4 w-4 mr-1" />
+                              Pay Now
+                            </Button>
+                          )
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Payment Modal */}
+      <Dialog
+        open={isPaymentModalOpen && selectedFee}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsPaymentModalOpen(false);
+            setSelectedFee(null);
+            setPaymentAmount(0);
+            setReceiptFile(null);
+            setShowPaymentInstructions(false);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl"
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedFee(null);
+            setPaymentAmount(0);
+            setReceiptFile(null);
+            setShowPaymentInstructions(false);
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Submit Fee Payment
+            </DialogTitle>
+            {selectedFee && (
+              <DialogDescription>
+                {selectedFee.fee_cycle.charAt(0).toUpperCase() +
+                  selectedFee.fee_cycle.slice(1)}{" "}
+                ({new Date(selectedFee.cycle_start_date).toLocaleDateString()} -{" "}
+                {new Date(selectedFee.cycle_end_date).toLocaleDateString()})
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="flex justify-center mb-4">
+            {showPaymentInstructions ? (
+              <Button
+                variant="ghost"
+                onClick={() => setShowPaymentInstructions(false)}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Payment Form
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                onClick={() => setShowPaymentInstructions(true)}
+              >
+                View Payment Instructions
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            )}
           </div>
-        </div>
-      )}
+
+          {!showPaymentInstructions ? (
+            <form onSubmit={handlePaymentSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="payment_amount"
+                  className="text-sm font-medium leading-none"
+                >
+                  Payment Amount
+                </label>
+                <Input
+                  type="number"
+                  id="payment_amount"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  min="0"
+                  max={
+                    parseFloat(selectedFee?.total_fee || 0) -
+                    parseFloat(selectedFee?.paid_fee || 0)
+                  }
+                  step="0.01"
+                  required
+                />
+                <p className="text-xs text-zinc-500">
+                  Maximum:{" "}
+                  {formatCurrency(
+                    parseFloat(selectedFee?.total_fee || 0) -
+                      parseFloat(selectedFee?.paid_fee || 0)
+                  )}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="receipt"
+                  className="text-sm font-medium leading-none"
+                >
+                  Upload Receipt
+                </label>
+                <label className="w-full flex flex-col items-center px-4 py-8 bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-lg cursor-pointer hover:bg-zinc-100 transition-colors">
+                  <Upload className="h-10 w-10 text-zinc-400" />
+                  <span className="mt-2 text-sm text-zinc-600">
+                    {receiptFile ? receiptFile.name : "Click to select a file"}
+                  </span>
+                  <span className="mt-1 text-xs text-zinc-400">
+                    PNG, JPG or PDF (MAX. 10MB)
+                  </span>
+                  <input
+                    type="file"
+                    id="receipt"
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={handleFileSelect}
+                    required
+                  />
+                </label>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsPaymentModalOpen(false);
+                    setSelectedFee(null);
+                    setPaymentAmount(0);
+                    setReceiptFile(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={uploading}>
+                  {uploading ? (
+                    <>
+                      <Clock className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Submit Payment
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <Tabs defaultValue="easypaisa">
+                <TabsList className="grid w-full grid-cols-4">
+                  {paymentMethods.map((method) => (
+                    <TabsTrigger key={method.id} value={method.id}>
+                      {method.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
+                <TabsContent value="easypaisa" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-green-600" />
+                        EasyPaisa Payment Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            Account Number:
+                          </span>
+                          <span className="text-sm font-mono">
+                            0312-3456789
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText("0312-3456789");
+                            setCopied("easypaisa");
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === "easypaisa" ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Steps to Pay:</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600">
+                          <li>Open your EasyPaisa app</li>
+                          <li>Go to "Send Money"</li>
+                          <li>Enter the account number above</li>
+                          <li>Enter the payment amount</li>
+                          <li>Add reference: "Fee Payment"</li>
+                          <li>Complete the transaction</li>
+                        </ol>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="jazzcash" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-red-600" />
+                        JazzCash Payment Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            Account Number:
+                          </span>
+                          <span className="text-sm font-mono">
+                            0300-1234567
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText("0300-1234567");
+                            setCopied("jazzcash");
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === "jazzcash" ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Steps to Pay:</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600">
+                          <li>Open your JazzCash app</li>
+                          <li>Select "Send Money"</li>
+                          <li>Enter the account number above</li>
+                          <li>Enter the payment amount</li>
+                          <li>Add reference: "Fee Payment"</li>
+                          <li>Complete the transaction</li>
+                        </ol>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="nayapay" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Smartphone className="h-5 w-5 text-blue-600" />
+                        NayaPay Payment Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            Account Number:
+                          </span>
+                          <span className="text-sm font-mono">
+                            0333-9876543
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText("0333-9876543");
+                            setCopied("nayapay");
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                        >
+                          {copied === "nayapay" ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Steps to Pay:</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600">
+                          <li>Open your NayaPay app</li>
+                          <li>Tap on "Send Money"</li>
+                          <li>Enter the account number above</li>
+                          <li>Enter the payment amount</li>
+                          <li>Add reference: "Fee Payment"</li>
+                          <li>Complete the transaction</li>
+                        </ol>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="bank" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-purple-600" />
+                        Bank Transfer Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2 p-3 bg-zinc-50 rounded-lg">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-600">Bank Name:</span>
+                          <span className="font-medium">HBL</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-600">Account Title:</span>
+                          <span className="font-medium">School Name</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-600">IBAN:</span>
+                          <span className="font-mono text-xs">
+                            PK36HABB0001234567890123
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-zinc-600">Raast ID:</span>
+                          <span className="font-medium">123456789</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            "PK36HABB0001234567890123"
+                          );
+                          setCopied("bank");
+                          setTimeout(() => setCopied(null), 2000);
+                        }}
+                      >
+                        {copied === "bank" ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2 text-green-600" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy IBAN
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Steps to Pay:</h4>
+                        <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-600">
+                          <li>Visit bank branch or use online banking</li>
+                          <li>Use the bank details provided above</li>
+                          <li>Enter the payment amount</li>
+                          <li>Add reference: "Fee Payment"</li>
+                          <li>Complete the transaction</li>
+                          <li>Keep the receipt for submission</li>
+                        </ol>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

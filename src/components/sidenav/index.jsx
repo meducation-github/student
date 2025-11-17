@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LuLogOut } from "react-icons/lu";
 import { useContext, useState, useEffect } from "react";
-import { SidenavContext } from "../../context/contexts";
+import { SidenavContext, UserContext } from "../../context/contexts";
 import { useNotifications } from "../../context/notificationContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../config/env";
@@ -14,36 +14,15 @@ import {
   LucideBell,
 } from "lucide-react";
 
-const STUDENT_ID = "22005ab9-d995-4a57-851f-7a7ad45a92cb";
-
 export function Sidenav() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { isMinimized, setIsMinimized } = useContext(SidenavContext);
+  const { studentData, logout: contextLogout } = useContext(UserContext);
   const { unreadCount } = useNotifications();
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isMediumScreen, setIsMediumScreen] = useState(false);
-  const [studentData, setStudentData] = useState(null);
 
   const navigation = useNavigate();
-
-  useEffect(() => {
-    const fetchStudentData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("students")
-          .select("*")
-          .eq("id", STUDENT_ID)
-          .single();
-
-        if (error) throw error;
-        setStudentData(data);
-      } catch (error) {
-        console.error("Error fetching student data:", error);
-      }
-    };
-
-    fetchStudentData();
-  }, []);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -62,6 +41,8 @@ export function Sidenav() {
     if (error) {
       console.error("Error logging out:", error.message);
     } else {
+      // Clear context and localStorage
+      contextLogout();
       localStorage.removeItem("entryCreated");
       navigation("/login");
       console.log("User logged out successfully");
@@ -74,15 +55,16 @@ export function Sidenav() {
       link: "./",
       icon: <LucideUserCircle className="w-4 lg:w-5" />,
     },
-    {
-      name: "Admission",
-      link: "./admission",
-      icon: <LucideBookOpen className="w-4 lg:w-5" />,
-    },
   ];
 
+  // Only show Admission if student doesn't have an institute_id assigned
+  const admissionModule = {
+    name: "Admission",
+    link: "./admission",
+    icon: <LucideBookOpen className="w-4 lg:w-5" />,
+  };
+
   const activeModules = [
-    ...baseModules,
     {
       name: "Studies",
       link: "./studies",
@@ -114,8 +96,24 @@ export function Sidenav() {
     },
   ];
 
-  const Modules =
-    studentData?.status === "Active" ? activeModules : baseModules;
+  // Build modules list based on student status and institute assignment
+  const getModules = () => {
+    let modules = [...baseModules];
+
+    // Show Admission only if no institute_id is assigned
+    if (!studentData?.institute_id) {
+      modules.push(admissionModule);
+    }
+
+    // Add active modules if student status is Active
+    if (studentData?.status === "Active") {
+      modules = [...modules, ...activeModules];
+    }
+
+    return modules;
+  };
+
+  const Modules = getModules();
 
   return (
     <div

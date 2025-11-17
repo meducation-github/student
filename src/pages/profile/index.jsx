@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import PageHeader from "../../components/pageHeader";
 import {
   User,
@@ -13,30 +13,45 @@ import {
 import { supabase } from "../../config/env";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-
-const STUDENT_ID = localStorage.getItem("student_id");
+import { UserContext } from "../../context/contexts";
 
 const Profile = () => {
+  const { studentData, loading: contextLoading, setStudent: updateStudent } = useContext(UserContext);
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedFields, setEditedFields] = useState({});
 
+  // Initialize from context when available
   useEffect(() => {
-    fetchStudentData();
-  }, []);
+    if (studentData) {
+      setStudent(studentData);
+      setEditedFields(studentData);
+      setLoading(false);
+    } else if (!contextLoading) {
+      // Only fetch if context is loaded but no student data
+      fetchStudentData();
+    }
+  }, [studentData, contextLoading]);
 
   const fetchStudentData = async () => {
+    if (!studentData?.id) {
+      console.error("No student ID available");
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("students")
         .select("*")
-        .eq("id", STUDENT_ID)
+        .eq("id", studentData.id)
         .single();
 
       if (error) throw error;
       setStudent(data);
       setEditedFields(data);
+      updateStudent(data); // Update context with fresh data
     } catch (error) {
       console.error("Error fetching student:", error);
     } finally {
@@ -53,20 +68,32 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    if (!student?.id) {
+      console.error("No student ID available");
+      return;
+    }
+
     try {
+      const updatedData = {
+        first_name: editedFields.first_name,
+        last_name: editedFields.last_name,
+        address: editedFields.address,
+        updated_at: new Date(),
+      };
+
       const { error } = await supabase
         .from("students")
-        .update({
-          first_name: editedFields.first_name,
-          last_name: editedFields.last_name,
-          address: editedFields.address,
-          updated_at: new Date(),
-        })
-        .eq("id", STUDENT_ID);
+        .update(updatedData)
+        .eq("id", student.id);
 
       if (error) throw error;
+
+      // Update local state and context immediately
+      const newStudentData = { ...student, ...updatedData };
+      setStudent(newStudentData);
+      setEditedFields(newStudentData);
+      updateStudent(newStudentData);
       setIsEditing(false);
-      fetchStudentData();
     } catch (error) {
       console.error("Error updating student:", error);
     }
