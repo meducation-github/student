@@ -1,21 +1,19 @@
 import AttendanceModal from "./AttendanceModal";
 
-const STUDENT_ID = localStorage.getItem("student_id");
+export default function StudentAttendance() {
+  const studentId = localStorage.getItem("student_id");
 
-function StudentAttendance() {
+  if (!studentId) {
+    return (
+      <div className="rounded-2xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+        Please login again to view your attendance timeline.
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <AttendanceModal
-        person={{ id: STUDENT_ID }}
-        isOpen={true}
-        onClose={() => {
-          setShowAttendanceModal(false);
-          setSelectedStudent(null);
-        }}
-        type="student"
-      />
+    <div className="rounded-2xl border bg-white p-2 shadow-sm">
+      <AttendanceModal person={{ id: studentId }} type="student" />
     </div>
   );
 }
-
-export default StudentAttendance;

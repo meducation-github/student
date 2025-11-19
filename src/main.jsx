@@ -15,6 +15,7 @@ import Profile from "./pages/profile/index.jsx";
 import Fees from "./pages/finance/fees.jsx";
 import Curriculum from "./pages/curriculum/index.jsx";
 import Notifications from "./pages/notifications/index.jsx";
+import Chat from "./pages/chat/index.jsx";
 
 createRoot(document.getElementById("root")).render(
   <ContextProvider>
@@ -31,6 +32,7 @@ createRoot(document.getElementById("root")).render(
           <Route path="admission" element={<Admission />} />
           <Route path="studies" element={<Curriculum />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="chat" element={<Chat />} />
           <Route path="*" element={<h1>404</h1>} />
         </Route>
 

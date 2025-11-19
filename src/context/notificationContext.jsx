@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import PropTypes from "prop-types";
 import { supabase } from "../config/env";
 import { toast } from "react-hot-toast";
 
-const NotificationContext = createContext();
+const NotificationContext = createContext(null);
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -15,14 +16,12 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
-  const [unreadCount, setUnreadCount] = useState(0);
   const [userId, setUserId] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Set up real-time subscription for notifications
   useEffect(() => {
     if (!userId) return;
 
-    // Fetch initial unread count
     const fetchUnreadCount = async () => {
       try {
         const { count, error } = await supabase
@@ -34,15 +33,14 @@ export const NotificationProvider = ({ children }) => {
         if (error) throw error;
         setUnreadCount(count || 0);
       } catch (error) {
-        console.error("Error fetching unread count:", error);
+        console.error("Error fetching unread notifications:", error);
       }
     };
 
     fetchUnreadCount();
 
-    // Subscribe to real-time changes
     const channel = supabase
-      .channel("global_notifications_channel")
+      .channel(`notifications_${userId}`)
       .on(
         "postgres_changes",
         {
@@ -52,24 +50,18 @@ export const NotificationProvider = ({ children }) => {
           filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("New notification received:", payload);
-          const newNotification = payload.new;
-
-          // Update unread count
           setUnreadCount((prev) => prev + 1);
-
-          // Show toast notification if user is not on notifications page
-          if (window.location.pathname !== "/notifications") {
-            toast.success(newNotification.message, {
+          const message = payload?.new?.message;
+          if (message && window.location.pathname !== "/notifications") {
+            toast.success(message, {
               duration: 5000,
-              icon: "🔔",
               style: {
-                background: "#363636",
+                background: "#0f172a",
                 color: "#fff",
               },
-              onClick: () => {
-                // Navigate to notifications page when toast is clicked
-                window.location.href = "/notifications";
+              iconTheme: {
+                primary: "#2563eb",
+                secondary: "#ffffff",
               },
             });
           }
@@ -84,9 +76,7 @@ export const NotificationProvider = ({ children }) => {
           filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Notification updated:", payload);
-          // Update unread count if notification was marked as read
-          if (payload.new.viewed && !payload.old.viewed) {
+          if (!payload?.old?.viewed && payload?.new?.viewed) {
             setUnreadCount((prev) => Math.max(0, prev - 1));
           }
         }
@@ -100,9 +90,7 @@ export const NotificationProvider = ({ children }) => {
           filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Notification deleted:", payload);
-          // Update unread count if deleted notification was unread
-          if (!payload.old.viewed) {
+          if (!payload?.old?.viewed) {
             setUnreadCount((prev) => Math.max(0, prev - 1));
           }
         }
@@ -114,41 +102,27 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [userId]);
 
-  const setUser = (user) => {
-    setUserId(user?.id || null);
-  };
+  const setUser = useCallback((user) => {
+    setUserId(user?.id ?? null);
+  }, []);
 
-  const updateUnreadCount = (count) => {
+  const updateUnreadCount = useCallback((count) => {
     setUnreadCount(count);
-  };
+  }, []);
 
-  const markAllAsRead = async () => {
-    if (!userId) return;
-
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ viewed: true })
-        .eq("receiver_id", userId)
-        .eq("viewed", false);
-
-      if (error) throw error;
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-    }
-  };
-
-  const value = {
-    unreadCount,
-    setUser,
-    updateUnreadCount,
-    markAllAsRead,
-  };
+  const markAllAsRead = useCallback(() => {
+    setUnreadCount(0);
+  }, []);
 
   return (
-    <NotificationContext.Provider value={value}>
+    <NotificationContext.Provider
+      value={{ unreadCount, setUser, updateUnreadCount, markAllAsRead }}
+    >
       {children}
     </NotificationContext.Provider>
   );
+};
+
+NotificationProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };

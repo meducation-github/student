@@ -1,9 +1,9 @@
 import { Context } from "./contexts";
-import { DataProvider } from "./dataContext";
 import { InstituteProvider } from "./instituteContext";
 import { SessionProvider } from "./sessionContext";
 import { UserProvider } from "./userContext";
 import { NotificationProvider } from "./notificationContext";
+import { ChatPreferencesProvider } from "./chatPreferencesContext";
 import PropTypes from "prop-types";
 
 export const ContextProvider = ({ children }) => {
@@ -11,9 +11,11 @@ export const ContextProvider = ({ children }) => {
     <Context.Provider>
       <UserProvider>
         <NotificationProvider>
-          <InstituteProvider>
-            <SessionProvider>{children}</SessionProvider>
-          </InstituteProvider>
+          <ChatPreferencesProvider>
+            <InstituteProvider>
+              <SessionProvider>{children}</SessionProvider>
+            </InstituteProvider>
+          </ChatPreferencesProvider>
         </NotificationProvider>
       </UserProvider>
     </Context.Provider>

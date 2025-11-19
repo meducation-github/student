@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import { UserContext } from "./contexts";
 
@@ -27,28 +27,28 @@ export const UserProvider = ({ children }) => {
     }
   }, []);
 
-  const login = (user) => {
+  const login = useCallback((user) => {
     setAuthUser(user);
     localStorage.setItem("auth_user", JSON.stringify(user));
     localStorage.setItem("user_id", user.id);
-  };
+  }, []);
 
-  const setStudent = (student) => {
+  const setStudent = useCallback((student) => {
     setStudentData(student);
     localStorage.setItem("student_data", JSON.stringify(student));
     if (student?.id) {
       localStorage.setItem("student_id", student.id);
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAuthUser(null);
     setStudentData(null);
     localStorage.removeItem("auth_user");
     localStorage.removeItem("student_data");
     localStorage.removeItem("user_id");
     localStorage.removeItem("student_id");
-  };
+  }, []);
 
   return (
     <UserContext.Provider

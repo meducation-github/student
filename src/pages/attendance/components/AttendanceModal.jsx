@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Calendar, BarChart2, Edit2, Trash2 } from "lucide-react";
+import { Calendar, BarChart2 } from "lucide-react";
 import {
   format,
   startOfMonth,
@@ -30,22 +30,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui
 import { Card, CardContent } from "../../../components/ui/card";
 
 // Constants
-const INSTITUTE_ID = "550e8400-e29b-41d4-a716-446655440000";
-const SESSION_ID = "7b8788cf-047f-4a6b-a359-4680a73b264d";
-
-const STUDENT_ID = localStorage.getItem("student_id");
-
-const AttendanceModal = ({ person, isOpen, onClose, type }) => {
+const AttendanceModal = ({ person, type = "student" }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState("month");
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isOpen && person) {
+    if (person?.id) {
       fetchAttendanceData();
     }
-  }, [isOpen, person, currentDate, viewMode]);
+  }, [person?.id, currentDate, viewMode]);
 
   const fetchAttendanceData = async () => {
     setLoading(true);
@@ -54,20 +49,20 @@ const AttendanceModal = ({ person, isOpen, onClose, type }) => {
     const { data: studentData, error: studentError } = await supabase
       .from("students")
       .select("institute_id")
-      .eq("id", STUDENT_ID);
+      .eq("id", person.id);
 
     // based on the institute_id, get the session_id from sessions table
     const { data: sessionData, error: sessionError } = await supabase
       .from("sessions")
       .select("id")
-      .eq("institute_id", studentData[0].institute_id);
+      .eq("institute_id", studentData?.[0]?.institute_id);
 
     supabase
       .from("student_attendances")
       .select("*")
       .eq("student_id", person.id)
-      .eq("institute_id", studentData[0].institute_id)
-      .eq("session_id", sessionData[0].id)
+      .eq("institute_id", studentData?.[0]?.institute_id)
+      .eq("session_id", sessionData?.[0]?.id)
       .gte("attendance_date", format(startOfMonth(currentDate), "yyyy-MM-dd"))
       .lte("attendance_date", format(endOfMonth(currentDate), "yyyy-MM-dd"))
       .then(({ data, error }) => {
@@ -290,8 +285,6 @@ const AttendanceModal = ({ person, isOpen, onClose, type }) => {
       </div>
     );
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="p-4">

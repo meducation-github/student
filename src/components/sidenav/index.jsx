@@ -1,205 +1,254 @@
-import { NavLink } from "react-router-dom";
-import { LuLogOut } from "react-icons/lu";
-import { useContext, useState, useEffect } from "react";
-import { SidenavContext, UserContext } from "../../context/contexts";
-import { useNotifications } from "../../context/notificationContext";
-import { useNavigate } from "react-router-dom";
+import { useContext, useMemo } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  LucideBell,
+  LucideBookOpen,
+  LucideCalendar,
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucideDoorOpen,
+  LucideGraduationCap,
+  LucideMessageCircle,
+  LucideShieldCheck,
+  LucideUserCircle,
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { cn } from "../../lib/utils/cn";
 import { supabase } from "../../config/env";
 import {
-  LucideGraduationCap,
-  LucideUserCircle,
-  LucideWallet,
-  LucideCalendar,
-  LucideBookOpen,
-  LucideBell,
-} from "lucide-react";
+  InstituteContext,
+  SidenavContext,
+  UserContext,
+} from "../../context/contexts";
+import { useNotifications } from "../../context/notificationContext";
 
-export function Sidenav() {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+export function Sidenav({ onNavigate, isMobile = false }) {
   const { isMinimized, setIsMinimized } = useContext(SidenavContext);
-  const { studentData, logout: contextLogout } = useContext(UserContext);
+  const { instituteState } = useContext(InstituteContext);
+  const { studentData, logout } = useContext(UserContext);
   const { unreadCount } = useNotifications();
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
-  const [isMediumScreen, setIsMediumScreen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const navigation = useNavigate();
+  const initials = useMemo(() => {
+    if (!studentData?.first_name) return "ST";
+    const first = studentData.first_name?.[0] || "";
+    const last = studentData.last_name?.[0] || "";
+    return `${first}${last}`.toUpperCase() || "ST";
+  }, [studentData]);
 
-  useEffect(() => {
-    const checkScreenSize = () => {
-      setIsSmallScreen(window.innerWidth < 768); // md breakpoint
-      setIsMediumScreen(window.innerWidth >= 768 && window.innerWidth < 1024); // between md and lg
-    };
+  const showText = !isMinimized || isMobile;
 
-    checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
+  const navItems = useMemo(() => {
+    const items = [
+      {
+        title: "Profile",
+        description: "Personal details",
+        to: "/",
+        icon: LucideUserCircle,
+      },
+    ];
 
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
+    if (!studentData?.institute_id) {
+      items.push({
+        title: "Admission",
+        description: "Complete enrollment",
+        to: "/admission",
+        icon: LucideShieldCheck,
+      });
+    }
+
+    items.push({
+      title: "Studies",
+      description: "Subjects & grades",
+      to: "/studies",
+      icon: LucideGraduationCap,
+    });
+
+    items.push({
+      title: "Fees",
+      description: "Invoices & payments",
+      to: "/finance/fees",
+      icon: LucideBookOpen,
+    });
+
+    items.push({
+      title: "Attendance",
+      description: "Calendar & stats",
+      to: "/attendance",
+      icon: LucideCalendar,
+    });
+
+    items.push({
+      title: "Notifications",
+      description: "Institute updates",
+      to: "/notifications",
+      icon: LucideBell,
+      badge: unreadCount,
+    });
+
+    items.push({
+      title: "Chat",
+      description: "Talk with institute",
+      to: "/chat",
+      icon: LucideMessageCircle,
+    });
+
+    return items;
+  }, [studentData, unreadCount]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error logging out:", error.message);
-    } else {
-      // Clear context and localStorage
-      contextLogout();
+    try {
+      await supabase.auth.signOut();
+      logout();
       localStorage.removeItem("entryCreated");
-      navigation("/login");
-      console.log("User logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
     }
   };
 
-  const baseModules = [
-    {
-      name: "Profile",
-      link: "./",
-      icon: <LucideUserCircle className="w-4 lg:w-5" />,
-    },
-  ];
-
-  // Only show Admission if student doesn't have an institute_id assigned
-  const admissionModule = {
-    name: "Admission",
-    link: "./admission",
-    icon: <LucideBookOpen className="w-4 lg:w-5" />,
-  };
-
-  const activeModules = [
-    {
-      name: "Studies",
-      link: "./studies",
-      icon: <LucideGraduationCap className="w-4 lg:w-5" />,
-    },
-    {
-      name: "Fees",
-      link: "./finance/fees",
-      icon: <LucideWallet className="w-4 lg:w-5" />,
-    },
-    {
-      name: "Attendance",
-      link: "./attendance",
-      icon: <LucideCalendar className="w-4 lg:w-5" />,
-    },
-    {
-      name: "Notifications",
-      link: "./notifications",
-      icon: (
-        <div className="relative">
-          <LucideBell className="w-4 lg:w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-              {unreadCount > 9 ? "9+" : unreadCount}
+  const renderNavItem = (item) => {
+    const Icon = item.icon;
+    const content = (
+      <>
+        <Icon className="mr-3 h-5 w-5 shrink-0" />
+        {showText && (
+          <div className="flex flex-1 flex-col">
+            <span>{item.title}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {item.description}
             </span>
-          )}
-        </div>
-      ),
-    },
-  ];
+          </div>
+        )}
+        {item.badge > 0 && <Badge className="ml-auto">{item.badge}</Badge>}
+      </>
+    );
 
-  // Build modules list based on student status and institute assignment
-  const getModules = () => {
-    let modules = [...baseModules];
-
-    // Show Admission only if no institute_id is assigned
-    if (!studentData?.institute_id) {
-      modules.push(admissionModule);
+    if (item.to) {
+      return (
+        <NavLink
+          key={item.title}
+          to={item.to}
+          onClick={() => onNavigate?.()}
+          className={({ isActive }) =>
+            cn(
+              "group relative flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-colors",
+              isActive || location.pathname === item.to
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )
+          }
+        >
+          {content}
+        </NavLink>
+      );
     }
 
-    // Add active modules if student status is Active
-    if (studentData?.status === "Active") {
-      modules = [...modules, ...activeModules];
-    }
-
-    return modules;
+    return (
+      <button
+        key={item.title}
+        onClick={item.action}
+        className="group relative flex w-full items-center rounded-2xl px-3 py-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {content}
+      </button>
+    );
   };
-
-  const Modules = getModules();
 
   return (
     <div
-      className={`rounded-md px-1 relative h-full flex flex-col overflow-hidden transition-all duration-300 ${
-        isMinimized || isMediumScreen ? "w-16" : "auto"
-      }`}
+      className={cn(
+        "relative flex h-full flex-col border-r bg-gradient-to-b from-white/90 to-slate-50/70 p-4 backdrop-blur",
+        !isMobile && "transition-all duration-300",
+        !isMobile && (isMinimized ? "w-[80px]" : "w-72")
+      )}
     >
-      <div
-        className="text-left ml-1 select-none items-center p-1 font-bold text-xl py-1 cursor-pointer hover:text-zinc-800 transition-colors"
-        onClick={() =>
-          !isSmallScreen && !isMediumScreen && setIsMinimized(!isMinimized)
-        }
-      >
-        <h1 className="text-left mt-4 text-xl lg:text-xl font-bold text-blue-600 p-1">
-          {isMinimized || isMediumScreen ? "ME" : "MEd Student"}
-        </h1>
-      </div>
-      <nav className="mt-2 md:mt-5">
-        {Modules.map((item) => (
+      <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-white/80 px-3 py-2 shadow-sm">
+        {showText && (
           <div>
-            <NavLink
-              to={item.link}
-              key={item.name}
-              title={item.name}
-              className={({ isActive }) =>
-                `flex items-center gap-3 lg:gap-4 text-gray-600 py-1.5 lg:py-3 px-2 lg:px-3 my-0.5 lg:my-1 rounded-md hover:bg-gray-200 ${
-                  isActive ? "bg-gray-200 !text-blue-600" : ""
-                }`
-              }
-            >
-              <div className="flex items-center justify-center">
-                {item.icon}
-              </div>
-              {!isMinimized && !isMediumScreen && (
-                <p className="truncate text-xs lg:text-base">{item.name}</p>
-              )}
-            </NavLink>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              MEducation
+            </p>
+            <p className="text-sm font-semibold text-foreground">
+              Student Portal
+            </p>
           </div>
-        ))}
-      </nav>
-      <div className="absolute bottom-0">
-        <div className="mt-0 mb-1 relative">
-          <div
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-3 lg:gap-4 p-1.5 lg:p-2 my-0.5 lg:my-1 rounded-md hover:bg-gray-200 cursor-pointer group relative"
+        )}
+        {!isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMinimized(!isMinimized)}
+            className="h-8 w-8"
+            title={isMinimized ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <div
-              className="flex items-center justify-center w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-blue-100 text-blue-600 font-semibold"
-              title={
-                isMinimized || isMediumScreen
-                  ? `${studentData?.first_name}\n${studentData?.email}`
-                  : undefined
-              }
-            >
-              {studentData?.first_name?.charAt(0)?.toUpperCase()}
-            </div>
-            {!isMinimized && !isMediumScreen && (
-              <div className="flex flex-col">
-                <span className="truncate text-xs lg:text-sm md:font-medium">
-                  {studentData?.first_name} {studentData?.last_name}
-                </span>
-                <span className="text-[10px] lg:text-xs text-gray-500 truncate">
-                  {studentData?.email}
-                </span>
+            {isMinimized ? (
+              <LucideChevronRight className="h-4 w-4" />
+            ) : (
+              <LucideChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        )}
+      </div>
+      <Separator className="my-4" />
+      <div className="space-y-1">{navItems.map(renderNavItem)}</div>
+      <div className="mt-auto space-y-4">
+        <Separator />
+        <div
+          className={cn(
+            "rounded-2xl border border-border/40 bg-white/80 p-3 shadow-inner",
+            !showText && "px-2 py-2 text-center"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 bg-primary/10 text-primary">
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            {showText && (
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {studentData
+                    ? `${studentData?.first_name ?? ""} ${
+                        studentData?.last_name ?? ""
+                      }`
+                    : "Student"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {instituteState?.name || "Institute"}
+                </p>
               </div>
             )}
           </div>
-
-          {isDropdownOpen && (
-            <div
-              className={`absolute bottom-full left-0 ${
-                isMinimized || isMediumScreen ? "" : "right-0"
-              } mb-2 bg-white rounded-md border border-gray-200`}
+          {showText && studentData?.email && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {studentData.email}
+            </p>
+          )}
+          {showText && (
+            <Button
+              variant="outline"
+              className="mt-3 w-full text-sm font-medium"
+              onClick={() => navigate("/")}
             >
-              <button
-                onClick={handleLogout}
-                className="flex w-full cursor-pointer items-center gap-3 lg:gap-4 p-2 lg:p-3 hover:bg-gray-100 text-left text-red-600"
-              >
-                <LuLogOut className="w-4 lg:w-5" />
-                {!isMinimized && !isMediumScreen && (
-                  <span className="text-sm lg:text-base">Logout</span>
-                )}
-              </button>
-            </div>
+              Manage profile
+            </Button>
           )}
         </div>
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-center gap-2 text-sm font-semibold text-destructive hover:text-destructive",
+            !showText && "px-2"
+          )}
+          onClick={handleLogout}
+        >
+          <LucideDoorOpen className="h-4 w-4" />
+          {showText && <span>Logout</span>}
+        </Button>
       </div>
     </div>
   );

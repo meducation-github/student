@@ -204,79 +204,96 @@ export default function Fees() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Fee Management</h1>
-        <p className="text-zinc-500">
-          Track and manage your fee payments across all cycles
+    <div className="space-y-6">
+      <div className="rounded-2xl border bg-white/80 p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Fees
+        </p>
+        <h1 className="mt-1 text-3xl font-bold text-foreground">
+          Track and pay your institute fees
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Stay on top of every billing cycle, upload payment proofs, and follow the status of submissions.
         </p>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-500" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardDescription>Total fees</CardDescription>
+              <CardTitle className="text-2xl">{formatCurrency(totalFees)}</CardTitle>
+            </div>
+            <div className="rounded-full bg-primary/10 p-2 text-primary">
+              <DollarSign className="h-5 w-5" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalFees)}</div>
-            <p className="text-xs text-zinc-500 mt-1">
-              Across {studentFees.length} cycles
+            <p className="text-xs text-muted-foreground">
+              Across {studentFees.length} billing cycles
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Fees</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardDescription>Paid so far</CardDescription>
+              <CardTitle className="text-2xl text-green-600">
+                {formatCurrency(paidFees)}
+              </CardTitle>
+            </div>
+            <div className="rounded-full bg-green-100 p-2 text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(paidFees)}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 rounded-full bg-muted">
                 <div
-                  className="h-full bg-green-500 transition-all"
+                  className="h-full rounded-full bg-green-500 transition-all"
                   style={{ width: `${paymentProgress}%` }}
                 />
               </div>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-muted-foreground">
                 {paymentProgress.toFixed(0)}%
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Fees</CardTitle>
-            <AlertCircle className="h-4 w-4 text-red-500" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardDescription>Pending amount</CardDescription>
+              <CardTitle className="text-2xl text-red-600">
+                {formatCurrency(pendingFees)}
+              </CardTitle>
+            </div>
+            <div className="rounded-full bg-red-100 p-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(pendingFees)}
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              {pendingFees > 0 ? "Payment required" : "All cleared"}
+            <p className="text-xs text-muted-foreground">
+              {pendingFees > 0 ? "Payment required" : "All clear"}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fee Cycles</CardTitle>
-            <FileText className="h-4 w-4 text-purple-500" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardDescription>Fee cycles</CardDescription>
+              <CardTitle className="text-2xl">{studentFees.length}</CardTitle>
+            </div>
+            <div className="rounded-full bg-purple-100 p-2 text-purple-600">
+              <FileText className="h-5 w-5" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {studentFees.length}
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              {studentFees.filter((f) => f.is_current_cycle).length} current
+            <p className="text-xs text-muted-foreground">
+              {studentFees.filter((f) => f.is_current_cycle).length} cycle(s) in progress
             </p>
           </CardContent>
         </Card>

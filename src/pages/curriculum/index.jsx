@@ -1,248 +1,225 @@
-import { useState, useContext, useEffect } from "react";
-import { GraduationCap, BookOpen, ExternalLink, Loader2 } from "lucide-react";
-import { InstituteContext, UserContext } from "../../context/contexts.jsx";
-import PageHeader from "../../components/pageHeader.jsx";
+import { useContext, useEffect, useMemo, useState } from "react";
+import {
+  LucideExternalLink,
+  LucideGraduationCap,
+  LucideLoader2,
+  LucideNotebook,
+  LucideSparkles,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
 import { supabase } from "../../config/env";
+import { UserContext } from "../../context/contexts";
+import { toast } from "react-hot-toast";
 
-const STUDENT_ID = "22005ab9-d995-4a57-851f-7a7ad45a92cb";
-
-export default function Curriculum() {
-  const { instituteState } = useContext(InstituteContext);
-  const { authState } = useContext(UserContext);
-  const [studentGrade, setStudentGrade] = useState(null);
+const Curriculum = () => {
+  const { studentData } = useContext(UserContext);
+  const studentId = studentData?.id || localStorage.getItem("student_id");
+  const [grade, setGrade] = useState(null);
   const [subjects, setSubjects] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+  const [autoLoginLoading, setAutoLoginLoading] = useState(false);
 
   useEffect(() => {
-    fetchStudentGradeAndSubjects();
-  }, []);
-
-  const fetchStudentGradeAndSubjects = async () => {
-    setIsLoading(true);
-    try {
-      // Get student's grade
-      const { data: studentData, error: studentError } = await supabase
-        .from("students")
-        .select("grade")
-        .eq("id", STUDENT_ID);
-
-      if (studentError) throw studentError;
-
-      if (studentData && studentData.length > 0) {
-        // Get grade details
-        const { data: gradeData, error: gradeError } = await supabase
-          .from("grades")
-          .select("*")
-          .eq("id", studentData[0].grade);
-
-        if (gradeError) throw gradeError;
-        setStudentGrade(gradeData[0]);
-
-        // Get subjects for this grade
-        const { data: subjectsData, error: subjectsError } = await supabase
-          .from("subjects_courses")
-          .select("*")
-          .eq("grade_id", studentData[0].grade)
-          .order("name");
-
-        if (subjectsError) throw subjectsError;
-        setSubjects(subjectsData || []);
-      }
-    } catch (error) {
-      setError("Failed to fetch data: " + error.message);
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
+    if (!studentId) {
+      setError("Student account not found");
+      setLoading(false);
+      return;
     }
-  };
+
+    const fetchCurriculum = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data: studentRecord, error: studentError } = await supabase
+          .from("students")
+          .select(
+            `
+            grade,
+            grades (
+              id,
+              name,
+              description,
+              level
+            )
+          `
+          )
+          .eq("id", studentId)
+          .single();
+
+        if (studentError) throw studentError;
+
+        setGrade(studentRecord?.grades || null);
+
+        if (studentRecord?.grade) {
+          const { data: subjectsData, error: subjectsError } = await supabase
+            .from("subjects_courses")
+            .select("*")
+            .eq("grade_id", studentRecord.grade)
+            .order("name");
+
+          if (subjectsError) throw subjectsError;
+          setSubjects(subjectsData || []);
+        } else {
+          setSubjects([]);
+        }
+      } catch (curriculumError) {
+        console.error("Error fetching curriculum:", curriculumError);
+        setError(curriculumError.message || "Unable to load curriculum");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCurriculum();
+  }, [studentId]);
 
   const handleAutoLogin = async () => {
-    setIsAutoLoggingIn(true);
+    setAutoLoginLoading(true);
     try {
-      // Get current user session from Supabase
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (sessionError) {
-        throw new Error("Failed to get current session");
-      }
+      if (sessionError) throw new Error("Failed to locate your session");
+      if (!session) throw new Error("Please login again to continue.");
 
-      if (!session) {
-        throw new Error("No active session found. Please log in first.");
-      }
-
-      // Get user email from session
-      const userEmail = session.user.email;
-
-      if (!userEmail) {
-        throw new Error("User email not found in session");
-      }
-
-      // Generate magic link for courses website using Supabase admin
       const { data: linkData, error: linkError } =
         await supabase.auth.admin.generateLink({
           type: "magiclink",
-          email: userEmail,
+          email: session.user.email,
           options: {
             redirectTo: "https://courses.meducation.pk",
           },
         });
 
-      if (linkError) {
-        console.error("Error generating link:", linkError);
-        throw new Error("Failed to generate auto-login link");
-      }
-
-      // Open the generated magic link in new tab
-      window.open(linkData.properties.action_link, "_blank");
-    } catch (error) {
-      console.error("Auto login error:", error);
-      setError("Failed to auto-login: " + error.message);
+      if (linkError) throw linkError;
+      window.open(linkData.properties.action_link, "_blank", "noopener,noreferrer");
+    } catch (autoLoginError) {
+      console.error("Auto-login error:", autoLoginError);
+      toast.error(autoLoginError.message || "Unable to auto-login right now");
     } finally {
-      setIsAutoLoggingIn(false);
+      setAutoLoginLoading(false);
     }
   };
 
-  if (isLoading) {
+  const summary = useMemo(
+    () => ({
+      subjectCount: subjects.length,
+      level: grade?.level ? `Level ${grade.level}` : "Level pending",
+      description: grade?.description || "Your institute will add a description soon.",
+    }),
+    [grade, subjects.length]
+  );
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <Card className="shadow-sm">
+        <CardContent className="p-10 text-center text-muted-foreground">
+          Loading studies...
+        </CardContent>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <div className="text-red-600 mb-4">Error: {error}</div>
-      </div>
+      <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-destructive">Unable to load studies</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+      </Card>
     );
   }
 
   return (
-    <div className="">
-      <PageHeader title={"Studies"} subtitle={"View your grade and subjects"} />
-
-      {/* Auto Login Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-2 rounded-lg mr-3">
-              <ExternalLink size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Access Your Courses
-              </h3>
-              <p className="text-sm text-gray-600">
-                Auto-login to courses.meducation.pk to study and access course
-                materials
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleAutoLogin}
-            disabled={isAutoLoggingIn}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-          >
-            {isAutoLoggingIn ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Logging in...
-              </>
-            ) : (
-              <>
-                <ExternalLink size={16} />
-                Auto Login
-              </>
-            )}
-          </button>
-        </div>
+    <div className="space-y-6">
+      <div className="rounded-2xl border bg-white/80 p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Studies
+        </p>
+        <h1 className="mt-1 text-3xl font-bold text-foreground">
+          Everything for your current grade
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Review your grade details, explore subjects, and launch the MEducation courses portal with one click.
+        </p>
       </div>
 
-      <div className="bg-white rounded-lg overflow-hidden">
-        {!studentGrade ? (
-          <div className="text-center py-12 px-4">
-            <GraduationCap size={48} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-700 mb-2">
-              No grade information found
-            </h3>
-            <p className="text-gray-500">
-              Please contact your administrator to set up your grade
-            </p>
-          </div>
-        ) : (
-          <div className="p-6">
-            {/* Grade Information */}
-            <div className="mb-8">
-              <div className="flex items-center mb-4">
-                <GraduationCap size={24} className="text-blue-600 mr-2" />
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Grade Information
-                </h3>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+            <div className="rounded-full bg-primary/10 p-2 text-primary">
+              <LucideGraduationCap className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle>{grade?.name || "Grade information pending"}</CardTitle>
+              <CardDescription>{summary.description}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Grade
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {grade?.name || "Not set"}
+                </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">
-                      Grade Name
-                    </h4>
-                    <p className="text-gray-900">{studentGrade.name}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">
-                      Grade Level
-                    </h4>
-                    <p className="text-gray-900">{studentGrade.level}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">
-                      Description
-                    </h4>
-                    <p className="text-gray-900">
-                      {studentGrade.description || "No description available"}
-                    </p>
-                  </div>
-                </div>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Level
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {summary.level}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Subjects
+                </p>
+                <p className="mt-1 text-xl font-semibold text-foreground">
+                  {summary.subjectCount}
+                </p>
               </div>
             </div>
 
-            {/* Subjects List */}
             <div>
-              <div className="flex items-center mb-4">
-                <BookOpen size={24} className="text-blue-600 mr-2" />
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Subjects
-                </h3>
-              </div>
-
+              <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+                <LucideNotebook className="h-5 w-5 text-primary" />
+                Subjects in this grade
+              </h3>
               {subjects.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500">
-                    No subjects available for this grade
-                  </p>
+                <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                  Your institute will assign subjects soon.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {subjects.map((subject) => (
                     <div
                       key={subject.id}
-                      className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors"
+                      className="rounded-xl border bg-white/70 p-4 shadow-sm transition hover:shadow-md"
                     >
-                      <h4 className="font-medium text-gray-900 mb-1">
+                      <p className="text-base font-semibold text-foreground">
                         {subject.name}
-                      </h4>
+                      </p>
                       {subject.code && (
-                        <p className="text-sm text-gray-500 mb-2">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
                           Code: {subject.code}
                         </p>
                       )}
                       {subject.description && (
-                        <p className="text-sm text-gray-600">
+                        <p className="mt-2 text-sm text-muted-foreground">
                           {subject.description}
                         </p>
                       )}
@@ -251,9 +228,49 @@ export default function Curriculum() {
                 </div>
               )}
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="rounded-full bg-primary/10 p-2 text-primary">
+                <LucideSparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle>Auto-login to courses</CardTitle>
+                <CardDescription>
+                  Jump straight into courses.meducation.pk
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                We’ll generate a one-time secure link and open your courses portal in a new tab.
+              </p>
+              <Button
+                className="w-full"
+                onClick={handleAutoLogin}
+                disabled={autoLoginLoading}
+              >
+                {autoLoginLoading ? (
+                  <>
+                    <LucideLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging you in...
+                  </>
+                ) : (
+                  <>
+                    <LucideExternalLink className="mr-2 h-4 w-4" />
+                    Open courses portal
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default Curriculum;

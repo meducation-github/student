@@ -1,38 +1,42 @@
-import { Link, Outlet, useNavigate } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "./config/env";
-import { UserContext, SidenavContext } from "./context/contexts";
-import { InstituteContext, SessionContext } from "./context/contexts";
+import {
+  UserContext,
+  SidenavContext,
+  InstituteContext,
+  SessionContext,
+} from "./context/contexts";
 import { useNotifications } from "./context/notificationContext";
-import { LucideSidebarClose, LucideSidebarOpen } from "lucide-react";
 import { Sidenav } from "./components/sidenav";
-import Chat from "./pages/chat";
+import { Sheet, SheetContent, SheetTrigger } from "./components/ui/sheet";
+import { Button } from "./components/ui/button";
+import { Badge } from "./components/ui/badge";
+import { LucideBell, LucideMenu, LucideMessageCircle } from "lucide-react";
 import { Toaster } from "react-hot-toast";
+import { useChatPreferences } from "./context/chatPreferencesContext";
+import ChatPopup from "./pages/chat/chatPopup";
 
 function App() {
-  const { login, setStudent } = useContext(UserContext);
-  const { setInstitute } = useContext(InstituteContext);
+  const { login, setStudent, studentData } = useContext(UserContext);
+  const { setInstitute, instituteState } = useContext(InstituteContext);
   const { setSession } = useContext(SessionContext);
-  const { setUser } = useNotifications();
+  const { setUser: setNotificationUser, unreadCount } = useNotifications();
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isMobileSidenavOpen, setIsMobileSidenavOpen] = useState(false);
-  const [isMediumScreen, setIsMediumScreen] = useState(false);
-  const navigation = useNavigate();
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+  const { floatingEnabled } = useChatPreferences();
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMediumScreen(window.innerWidth >= 768 && window.innerWidth < 1024);
+      setIsMinimized(window.innerWidth < 1280);
     };
 
-    // Initial check
     handleResize();
-
-    // Add event listener
     window.addEventListener("resize", handleResize);
-
-    // Cleanup
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
@@ -44,12 +48,11 @@ function App() {
       progressInterval = setInterval(() => {
         setProgress((prev) => (prev < 90 ? prev + Math.random() * 10 : prev));
       }, 50);
+
       const { data, error } = await supabase.auth.getUser();
-      console.log(data);
       if (data?.user) {
         login(data.user);
-        setUser(data.user); // Set user for notifications
-        console.log(data.user.id);
+        setNotificationUser(data.user);
         localStorage.setItem("user_id", data.user.id);
 
         const { data: userData, error: userError } = await supabase
@@ -60,17 +63,14 @@ function App() {
 
         if (userError) {
           console.error("Error fetching user data:", userError);
-          // stop loading and navigate to login as fallback
           setLoading(false);
           clearInterval(progressInterval);
           return;
         }
 
-        // Store student data in context (which also persists to localStorage)
         setStudent(userData);
 
         try {
-          // Fetch institute details and set in context so dependent components can load immediately
           if (userData?.institute_id) {
             const { data: instituteData, error: instError } = await supabase
               .from("institutes")
@@ -80,117 +80,191 @@ function App() {
 
             if (!instError && instituteData) {
               setInstitute(instituteData);
-            } else if (instError) {
-              console.error("Error fetching institute:", instError);
             }
           }
 
-          // Fetch session details if available
           if (userData?.session_id) {
-            const { data: sessionData, error: sessError } = await supabase
+            const { data: sessionData, error: sessionError } = await supabase
               .from("sessions")
               .select("*")
               .eq("id", userData.session_id)
               .single();
 
-            if (!sessError && sessionData) {
+            if (!sessionError && sessionData) {
               setSession(sessionData);
-            } else if (sessError) {
-              console.error("Error fetching session:", sessError);
             }
           }
-        } catch (e) {
-          console.error("Error fetching institute/session:", e);
+        } catch (fetchError) {
+          console.error("Error loading related context:", fetchError);
         }
 
         setProgress(100);
-        setTimeout(() => setLoading(false), 50); // allow bar to finish
+        setTimeout(() => setLoading(false), 120);
         clearInterval(progressInterval);
       } else {
         setLoading(false);
         clearInterval(progressInterval);
-        navigation("/login");
         console.error("Error fetching user:", error);
+        navigate("/login");
       }
     };
+
     fetchUser();
-  }, []);
+    return () => clearInterval(progressInterval);
+  }, [login, navigate, setInstitute, setNotificationUser, setSession, setStudent]);
+
+  const quickStats = useMemo(() => {
+    const attendanceValue =
+      studentData?.attendance_percentage ??
+      studentData?.attendance_rate ??
+      null;
+    const pendingFees = studentData?.pending_fees_amount;
+    return [
+      {
+        label: "Enrolled Grade",
+        value:
+          studentData?.grade_name ||
+          studentData?.grade ||
+          "Awaiting placement",
+        subtext: studentData?.session_name || "Current academic session",
+      },
+      {
+        label: "Attendance",
+        value: attendanceValue ? `${attendanceValue}%` : "Tracking in progress",
+        subtext: attendanceValue ? "This month" : "Keep checking in daily",
+      },
+      {
+        label: "Notifications",
+        value: unreadCount > 0 ? `${unreadCount} unread` : "All caught up",
+        subtext: "Institute updates",
+      },
+      {
+        label: "Fees status",
+        value:
+          pendingFees && pendingFees > 0
+            ? `Rs ${Number(pendingFees).toLocaleString()} due`
+            : studentData?.fee_status || "Up to date",
+        subtext:
+          pendingFees && pendingFees > 0
+            ? "Tap fees to pay online"
+            : "Thank you for staying current",
+      },
+    ];
+  }, [studentData, unreadCount]);
 
   return (
     <SidenavContext.Provider value={{ isMinimized, setIsMinimized }}>
-      <div>
-        {loading && (
-          <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white transition-all">
-            <h1
-              className="text-4xl font-black text-blue-600 mb-4 tracking-wide"
-              style={{ letterSpacing: "0.05em" }}
-            >
-              MEducation
-            </h1>
-            <div className="relative w-[120px] h-2 bg-zinc-200 rounded-full overflow-hidden mb-2">
-              <div
-                className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-200"
-                style={{ width: `${progress}%` }}
-              ></div>
+      <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+        <div className="flex min-h-screen bg-muted/40 overflow-hidden">
+          <aside className="hidden lg:block">
+            <div className="sticky top-0 h-screen">
+              <Sidenav />
             </div>
-          </div>
-        )}
-        <div className="sm:flex w-full h-screen">
-          <div className="block sm:hidden">
-            <div className="flex items-center border-b border-gray-200 justify-between">
-              <div className="flex-1">
-                <div className="text-left ml-2 select-none flex items-center p-1 font-bold text-xl py-4 cursor-pointer hover:text-zinc-800 transition-colors">
-                  <Link to="/">
-                    <h1 className="text-center text-2xl font-semibold p-1">
-                      MEd Student
-                    </h1>
-                  </Link>
+          </aside>
+
+          <SheetContent
+            side="left"
+            className="w-[85%] border-r p-0 sm:max-w-sm lg:hidden"
+          >
+            <Sidenav isMobile onNavigate={() => setIsMobileNavOpen(false)} />
+          </SheetContent>
+
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-white/80 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 lg:px-8">
+              <div className="flex items-center gap-3">
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden"
+                    aria-label="Toggle sidebar"
+                  >
+                    <LucideMenu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {instituteState?.name || "MEducation Institute"}
+                  </p>
+                  <h1 className="text-lg font-semibold text-foreground">
+                    Welcome back{" "}
+                    {studentData?.first_name
+                      ? studentData.first_name
+                      : "student"}
+                  </h1>
                 </div>
               </div>
-              <div
-                className="hover:bg-gray-100 rounded-md mx-2 px-4 py-4"
-                onClick={() => setIsMobileSidenavOpen(true)}
-              >
-                {isMobileSidenavOpen ? (
-                  <LucideSidebarClose />
-                ) : (
-                  <LucideSidebarOpen />
-                )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="relative"
+                  onClick={() => navigate("/notifications")}
+                >
+                  <LucideBell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <Badge className="absolute -right-1 -top-1 h-5 w-5 justify-center rounded-full p-0 text-[11px]">
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => navigate("/chat")}
+                >
+                  <LucideMessageCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Open chat</span>
+                </Button>
               </div>
-            </div>
-          </div>
-          <div
-            className={`fixed sm:sticky top-0 h-screen rounded-lg p-2 sm:block transition-all duration-300 ${
-              isMinimized || isMediumScreen
-                ? "sm:w-20"
-                : "sm:w-3/12 md:w-2/12 lg:w-2/12 xl:w-2/12"
-            } ${
-              isMobileSidenavOpen
-                ? "top-0 left-0 w-[80%] block"
-                : "-left-full hidden"
-            }  z-50`}
-          >
-            <Sidenav />
-          </div>
+            </header>
 
-          {isMobileSidenavOpen && (
-            <div
-              className="fixed inset-0 bg-black/10 z-40 sm:hidden"
-              onClick={() => setIsMobileSidenavOpen(false)}
-            />
-          )}
-
-          <div className="flex-1 pr-2 h-screen overflow-y-auto">
-            <div
-              className={`w-full rounded-lg my-2 transition-all duration-300 px-4 py-1`}
-            >
-              <Outlet />
-            </div>
+            <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-10">
+              {loading ? (
+                <div className="flex h-[70vh] flex-col items-center justify-center gap-5">
+                  <h1 className="text-3xl font-black tracking-wide text-primary">
+                    MEducation
+                  </h1>
+                  <div className="h-2 w-48 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full w-full origin-left rounded-full bg-primary transition-all duration-200"
+                      style={{ transform: `scaleX(${progress / 100})` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Loading your personalized student dashboard...
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {quickStats.map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="rounded-2xl border bg-white/80 p-4 shadow-sm"
+                      >
+                        <p className="text-xs uppercase text-muted-foreground">
+                          {stat.label}
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">
+                          {stat.value}
+                        </p>
+                        {stat.subtext && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {stat.subtext}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Outlet />
+                </div>
+              )}
+            </main>
           </div>
         </div>
-        <Chat />
+        {floatingEnabled && location.pathname !== "/chat" && <ChatPopup />}
         <Toaster position="top-right" />
-      </div>
+      </Sheet>
     </SidenavContext.Provider>
   );
 }

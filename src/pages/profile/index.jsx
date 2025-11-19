@@ -1,280 +1,251 @@
-import { useState, useEffect, useContext } from "react";
-import PageHeader from "../../components/pageHeader";
-import {
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  MapPin,
-  School,
-  GraduationCap,
-  Save,
-} from "lucide-react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
 import { supabase } from "../../config/env";
+import { UserContext, InstituteContext } from "../../context/contexts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { UserContext } from "../../context/contexts";
+import { Textarea } from "../../components/ui/textarea";
+import { Label } from "../../components/ui/label";
+import {
+  LucideUserCog,
+  LucideCalendar,
+  LucideSchool,
+  LucideMapPin,
+  LucideMail,
+  LucidePhone,
+  LucideUser,
+} from "lucide-react";
 
 const Profile = () => {
-  const { studentData, loading: contextLoading, setStudent: updateStudent } = useContext(UserContext);
-  const [student, setStudent] = useState(null);
+  const { studentData, setStudent } = useContext(UserContext);
+  const { instituteState } = useContext(InstituteContext);
+  const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    address: "",
+  });
+  const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedFields, setEditedFields] = useState({});
 
-  // Initialize from context when available
   useEffect(() => {
     if (studentData) {
-      setStudent(studentData);
-      setEditedFields(studentData);
+      setFormData({
+        first_name: studentData.first_name || "",
+        last_name: studentData.last_name || "",
+        email: studentData.email || "",
+        phone: studentData.phone || "",
+        address: studentData.address || "",
+      });
       setLoading(false);
-    } else if (!contextLoading) {
-      // Only fetch if context is loaded but no student data
-      fetchStudentData();
     }
-  }, [studentData, contextLoading]);
+  }, [studentData]);
 
-  const fetchStudentData = async () => {
-    if (!studentData?.id) {
-      console.error("No student ID available");
-      setLoading(false);
-      return;
-    }
+  const quickFacts = useMemo(
+    () => [
+      {
+        label: "Enrollment ID",
+        value: studentData?.id?.slice(0, 8) || "Unavailable",
+        icon: LucideUser,
+      },
+      {
+        label: "Grade",
+        value: studentData?.grade_name || studentData?.grade || "Not assigned",
+        icon: LucideSchool,
+      },
+      {
+        label: "Joined",
+        value: studentData?.admission_date
+          ? new Date(studentData.admission_date).toLocaleDateString()
+          : "Pending",
+        icon: LucideCalendar,
+      },
+      {
+        label: "Institute",
+        value: instituteState?.name || "Not connected",
+        icon: LucideMapPin,
+      },
+    ],
+    [instituteState?.name, studentData]
+  );
 
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!studentData?.id) return;
+    setIsSaving(true);
     try {
+      const payload = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone,
+        address: formData.address,
+        updated_at: new Date().toISOString(),
+      };
+
       const { data, error } = await supabase
         .from("students")
-        .select("*")
+        .update(payload)
         .eq("id", studentData.id)
+        .select()
         .single();
 
       if (error) throw error;
-      setStudent(data);
-      setEditedFields(data);
-      updateStudent(data); // Update context with fresh data
+      setStudent({ ...studentData, ...data });
+      toast.success("Profile updated successfully");
     } catch (error) {
-      console.error("Error fetching student:", error);
+      console.error("Error updating profile:", error);
+      toast.error("Unable to save changes");
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditedFields((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!student?.id) {
-      console.error("No student ID available");
-      return;
-    }
-
-    try {
-      const updatedData = {
-        first_name: editedFields.first_name,
-        last_name: editedFields.last_name,
-        address: editedFields.address,
-        updated_at: new Date(),
-      };
-
-      const { error } = await supabase
-        .from("students")
-        .update(updatedData)
-        .eq("id", student.id);
-
-      if (error) throw error;
-
-      // Update local state and context immediately
-      const newStudentData = { ...student, ...updatedData };
-      setStudent(newStudentData);
-      setEditedFields(newStudentData);
-      updateStudent(newStudentData);
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error updating student:", error);
+      setIsSaving(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">Loading...</div>
+      <div className="rounded-2xl border bg-white/60 p-8 text-center shadow-sm">
+        Loading profile...
+      </div>
     );
   }
 
   return (
-    <div className="">
-      <PageHeader
-        title={"Profile"}
-        subtitle={`See your profile details and update them if needed.`}
-      />
+    <div className="space-y-6">
+      <div className="rounded-2xl border bg-white/80 p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Profile
+        </p>
+        <h1 className="mt-1 text-3xl font-bold text-foreground">
+          Keep your student information up to date
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Accurate details help your institute stay in touch about attendance,
+          studies, and fees in real time.
+        </p>
+      </div>
 
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white rounded-lg p-6 mt-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-800">
-              Basic Information
-            </h2>
-            <Button
-              onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-              className="flex items-center"
-              size="sm"
-            >
-              {isEditing ? (
-                <>
-                  <Save size={16} className="mr-2" />
-                  Save Changes
-                </>
-              ) : (
-                "Edit Profile"
-              )}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Editable Fields */}
-            <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {quickFacts.map((fact) => (
+          <Card key={fact.label} className="bg-white/90">
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                <fact.icon className="h-5 w-5" />
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Name
-                </label>
-                <div className="relative">
-                  <User
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
+                <CardDescription>{fact.label}</CardDescription>
+                <CardTitle className="text-lg">{fact.value}</CardTitle>
+              </div>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+            <div className="rounded-full bg-primary/10 p-2 text-primary">
+              <LucideUserCog className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle>Contact information</CardTitle>
+              <CardDescription>
+                Update your name, phone and address details.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First name</Label>
                   <Input
-                    type="text"
+                    id="first_name"
                     name="first_name"
-                    value={editedFields.first_name}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="pl-10 pr-3 py-2"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last Name
-                </label>
-                <div className="relative">
-                  <User
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last name</Label>
                   <Input
-                    type="text"
+                    id="last_name"
                     name="last_name"
-                    value={editedFields.last_name}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="pl-10 pr-3 py-2"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    required
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <div className="relative">
-                  <MapPin
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
                   <Input
-                    type="text"
-                    name="address"
-                    value={editedFields.address}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="pl-10 pr-3 py-2"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+92 300 0000000"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={formData.email} disabled />
+                </div>
               </div>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  rows={3}
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="Street, city, country"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSaving} className="min-w-[140px]">
+                  {isSaving ? "Saving..." : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-            {/* Non-editable Fields */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <Input
-                    type="email"
-                    value={student?.email || "Not provided"}
-                    disabled
-                    className="pl-10 pr-3 py-2 bg-gray-50"
-                  />
-                </div>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Institutional record</CardTitle>
+              <CardDescription>Stored details from your institute.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <LucideMail className="h-4 w-4" />
+                {studentData?.email || "Email not set"}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
-                </label>
-                <div className="relative">
-                  <Phone
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <Input
-                    type="tel"
-                    value={student?.phone || "Not provided"}
-                    disabled
-                    className="pl-10 pr-3 py-2 bg-gray-50"
-                  />
-                </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <LucidePhone className="h-4 w-4" />
+                {studentData?.phone || "Phone not set"}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
-                <div className="relative">
-                  <Calendar
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <Input
-                    type="text"
-                    value={student?.date_of_birth || "Not provided"}
-                    disabled
-                    className="pl-10 pr-3 py-2 bg-gray-50"
-                  />
-                </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <LucideMapPin className="h-4 w-4" />
+                {studentData?.address || "Address not set"}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Admission Date
-                </label>
-                <div className="relative">
-                  <School
-                    size={20}
-                    className="absolute left-3 top-2.5 text-gray-400"
-                  />
-                  <Input
-                    type="text"
-                    value={new Date(
-                      student?.admission_date
-                    ).toLocaleDateString()}
-                    disabled
-                    className="pl-10 pr-3 py-2 bg-gray-50"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
