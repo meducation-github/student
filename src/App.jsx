@@ -155,7 +155,7 @@ function App() {
   return (
     <SidenavContext.Provider value={{ isMinimized, setIsMinimized }}>
       <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
-        <div className="flex min-h-screen bg-muted/40 overflow-hidden">
+        <div className="flex h-screen min-h-screen bg-muted/40 overflow-hidden">
           <aside className="hidden lg:block">
             <div className="sticky top-0 h-screen">
               <Sidenav />
@@ -169,7 +169,7 @@ function App() {
             <Sidenav isMobile onNavigate={() => setIsMobileNavOpen(false)} />
           </SheetContent>
 
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
             <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-white/80 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/60 lg:px-8">
               <div className="flex items-center gap-3">
                 <SheetTrigger asChild>
@@ -218,7 +218,7 @@ function App() {
               </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-10">
+            <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 lg:px-10">
               {loading ? (
                 <div className="flex h-[70vh] flex-col items-center justify-center gap-5">
                   <h1 className="text-3xl font-black tracking-wide text-primary">

@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../config/env";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import { Button } from "../../../components/ui/button";
+import { Label } from "../../../components/ui/label";
+import { toast, Toaster } from "react-hot-toast";
 
 export const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
@@ -23,94 +29,88 @@ export const Login = () => {
       setError(error.message);
       setProgress(false);
     } else {
-      // alert("Login successful!");
       setTimeout(() => {
         setProgress(false);
         navigate("/");
-      }, 1500);
+      }, 800);
     }
   };
 
+  const handleReset = async () => {
+    if (!email) {
+      setError("Enter your email to reset your password.");
+      return;
+    }
+    setResetting(true);
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    setResetting(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    toast.success("Password reset link sent to your email.");
+  };
+
   return (
-    <div>
-      <section className=" dark:bg-gray-900">
-        <div className="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
-          <div className="w-full bg-white md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
-            <div className="p-6 text-center space-y-4 md:space-y-6 sm:p-8">
-              <h1
-                href="#"
-                className="text-center mb-6 text-2xl font-black text-blue-600"
-              >
-                MEducation
-              </h1>
-              <h1 className="text-xl py-3 font-semibold leading-tight tracking-tight">
-                Login to your account
-              </h1>
-              <form className="space-y-4 md:space-y-6" onSubmit={handleLogin}>
-                <div className="text-left">
-                  <label
-                    htmlFor="email"
-                    className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                  >
-                    Your email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    placeholder="name@company.com"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div className="text-left">
-                  <label
-                    htmlFor="password"
-                    className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                  >
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    id="password"
-                    placeholder="••••••••"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                {error && <p className="text-red-500 text-sm">{error}</p>}
-                <button
-                  type="submit"
-                  className="w-full my-1 dark:text-white bg-blue-50 text-blue-600 hover:bg-blue-100 focus:bg-blue-200 cursor-pointer font-medium rounded-lg text-sm px-5 py-2.5 text-center flex items-center justify-center"
-                  disabled={progress}
+    <div className="min-h-screen bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="space-y-1 text-center">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              MEducation
+            </p>
+            <CardTitle className="text-2xl">Sign in</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Access your student portal securely.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleLogin}>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <div className="flex justify-between text-sm">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="px-0 font-medium"
+                  onClick={handleReset}
+                  disabled={resetting}
                 >
-                  {progress ? (
-                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent border-solid rounded-full animate-spin"></div>
-                  ) : (
-                    "Login"
-                  )}
-                </button>
-                <div className="text-sm my-1 py-1 font-light text-gray-500 dark:text-gray-400">
-                  <p>or</p>
-                </div>
-                <Link to="/signup">
-                  <button
-                    type="submit"
-                    className="w-full dark:text-white  text-blue-600 cursor-pointer font-medium rounded-lg text-sm px-5 py-2.5 text-center"
-                  >
-                    Create Account
-                  </button>
-                </Link>
-              </form>
-            </div>
-          </div>
-        </div>
-      </section>
+                  {resetting ? "Sending reset link..." : "Forgot password?"}
+                </Button>
+              </div>
+              <Button type="submit" className="w-full" disabled={progress}>
+                {progress ? "Signing in..." : "Login"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+      <Toaster position="top-right" />
     </div>
   );
 };
